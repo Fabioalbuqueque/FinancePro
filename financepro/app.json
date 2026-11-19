@@ -3,21 +3,6 @@
     "name": "FinancePro",
     "slug": "financepro",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "scheme": "financepro",
-    "userInterfaceStyle": "automatic",
-    "backgroundColor": "#0F172A",
-    "splash": {
-      "backgroundColor": "#0F172A",
-      "resize": "contain"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.financepro.mobile",
-      "infoPlist": {
-        "UIFileSharingEnabled": true
-      }
-    },
     "web": {
       "bundler": "metro"
     },
@@ -28,8 +13,7 @@
     ],
     "android": {
       "package": "com.anonymous.financepro",
-      "permissions": [],
-      "useClearTextTraffic": true
+      "permissions": []
     },
     "experiments": {
       "typedRoutes": false

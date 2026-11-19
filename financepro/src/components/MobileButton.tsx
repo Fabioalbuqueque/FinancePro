@@ -8,7 +8,7 @@ interface MobileButtonProps {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
@@ -84,7 +84,7 @@ export function MobileButton({
       ) : (
         <View style={styles.buttonContent}>
           {icon && (
-            <Ionicons name={icon} size={18} color={variantStyle.textColor} />
+            <Ionicons name={icon as any} size={18} color={variantStyle.textColor} />
           )}
           <Text style={[styles.buttonText, { color: variantStyle.textColor }]}>
             {title}

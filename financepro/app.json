@@ -3,45 +3,22 @@
     "name": "FinancePro",
     "slug": "financepro",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "scheme": "financepro",
-    "userInterfaceStyle": "automatic",
-    "backgroundColor": "#0F172A",
-    "splash": {
-      "backgroundColor": "#0F172A",
-      "resize": "contain"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.financepro.mobile",
-      "infoPlist": {
-        "UIFileSharingEnabled": true
-      }
-    },
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "web": {
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications",
-      "react-native-safe-area-context"
+      "expo-notifications"
     ],
     "android": {
       "package": "com.anonymous.financepro",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "finacas.fln0bsx.mongodb.net"
-            }
-          ]
-        }
-      ]
+      "permissions": []
     },
     "experiments": {
       "typedRoutes": false

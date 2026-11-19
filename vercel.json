@@ -1,0 +1,11 @@
+{
+  "buildCommand": "cd financepro && npx expo export --platform web",
+  "outputDirectory": "financepro/dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

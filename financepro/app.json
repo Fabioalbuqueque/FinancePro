@@ -24,24 +24,12 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications",
-      "react-native-safe-area-context"
+      "expo-notifications"
     ],
     "android": {
       "package": "com.anonymous.financepro",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "finacas.fln0bsx.mongodb.net"
-            }
-          ]
-        }
-      ]
+      "permissions": [],
+      "useClearTextTraffic": true
     },
     "experiments": {
       "typedRoutes": false

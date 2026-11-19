@@ -1,8 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// Use o IP local do seu computador para conectar o app no celular
-// Para encontrar seu IP: execute `ipconfig` (Windows) ou `ifconfig` (Mac/Linux)
-export const API_BASE_URL = 'http://192.168.1.64:3000';
+// Em desenvolvimento, o app pode apontar para o backend local.
+// Em builds EAS, use EXPO_PUBLIC_API_BASE_URL (definido no eas.json).
+const localFallbackApiUrl = 'http://192.168.1.64:3000';
+export const API_BASE_URL: string =
+  process.env.EXPO_PUBLIC_API_BASE_URL || localFallbackApiUrl;
 
 class ApiService {
   private token: string | null = null;

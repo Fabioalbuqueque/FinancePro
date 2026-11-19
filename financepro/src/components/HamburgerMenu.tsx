@@ -14,7 +14,7 @@ interface MenuItem {
   key: string;
   title: string;
   subtitle?: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   color: string;
 }
 
@@ -92,7 +92,7 @@ export function HamburgerMenu() {
                 onPress={() => handleNavigate(item.key)}
               >
                 <View style={[styles.itemIcon, { backgroundColor: `${item.color}20` }]}>
-                  <Ionicons name={item.icon} size={22} color={item.color} />
+                  <Ionicons name={item.icon as any} size={22} color={item.color} />
                 </View>
                 <View style={styles.itemInfo}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>

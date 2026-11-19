@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "FinancePro",
+    "slug": "financepro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "financepro",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-notifications"
+    ],
+    "android": {
+      "package": "com.anonymous.financepro"
+    }
+  }
+}

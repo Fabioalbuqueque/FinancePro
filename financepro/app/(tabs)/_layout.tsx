@@ -1,26 +1,38 @@
 import React from 'react';
-import { Tabs, useNavigation } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../src/theme/useThemeColors';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
   const theme = useThemeColors();
+
+  // Ajuste de altura da tab bar para iOS (notch)
+  const tabBarHeight = Platform.OS === 'ios' ? 85 : 60;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: true,
         headerStyle: { backgroundColor: theme.card },
-        headerTitleStyle: { fontWeight: '700', color: theme.text },
+        headerTitleStyle: { fontWeight: '700', color: theme.text, fontSize: 17 },
         tabBarStyle: {
           backgroundColor: theme.tabBar,
           borderTopColor: theme.tabBarBorder,
-          height: 60,
-          paddingBottom: 8,
+          height: tabBarHeight,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           paddingTop: 8,
+          borderTopWidth: Platform.OS === 'ios' ? 0 : 1,
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIconStyle: {
+          marginBottom: -4,
+        },
       }}
     >
       <Tabs.Screen

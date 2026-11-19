@@ -6,8 +6,17 @@
     "orientation": "portrait",
     "scheme": "financepro",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0F172A",
+    "splash": {
+      "backgroundColor": "#0F172A",
+      "resize": "contain"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.financepro.mobile",
+      "infoPlist": {
+        "UIFileSharingEnabled": true
+      }
     },
     "web": {
       "bundler": "metro"
@@ -15,10 +24,27 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      "react-native-safe-area-context"
     ],
     "android": {
-      "package": "com.anonymous.financepro"
+      "package": "com.anonymous.financepro",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "finacas.fln0bsx.mongodb.net"
+            }
+          ]
+        }
+      ]
+    },
+    "experiments": {
+      "typedRoutes": false
     }
   }
 }

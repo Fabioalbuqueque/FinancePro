@@ -27,10 +27,10 @@ export class CreateTransactionDto {
   @IsEnum(['income', 'expense'])
   type: 'income' | 'expense';
 
-  @ApiProperty({ description: 'ID da conta financeira' })
+  @ApiPropertyOptional({ description: 'ID da conta financeira (opcional)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  accountId: string;
+  accountId?: string;
 
   @ApiPropertyOptional({ description: 'ID da categoria' })
   @IsOptional()

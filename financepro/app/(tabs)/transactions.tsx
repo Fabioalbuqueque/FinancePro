@@ -22,20 +22,17 @@ import { useThemeColors } from '../../src/theme/useThemeColors';
 export default function TransactionsScreen() {
   const router = useRouter();
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('');
 
-  // Modal de Nova Transação
+  // Modal de Nova Transação (Apenas Receita ou Despesa)
   const [modalVisible, setModalVisible] = useState(false);
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [description, setDescription] = useState('');
   const [amountInput, setAmountInput] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [saving, setSaving] = useState(false);
-  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const theme = useThemeColors();
 
@@ -44,29 +41,17 @@ export default function TransactionsScreen() {
       const params: any = {};
       if (filterType) params.type = filterType;
 
-      const [txRes, accRes, catRes]: [any, any, any] = await Promise.all([
+      const [txRes, catRes]: [any, any] = await Promise.all([
         api.getTransactions(params),
-        api.getAccounts(),
         api.getCategories(),
       ]);
 
       setTransactions(txRes.items || []);
-      const allAccs = [...(accRes.personal || []), ...(accRes.family || [])];
-      setAccounts(allAccs);
-
-      // Auto-selecionar conta válida
-      if (allAccs.length > 0) {
-        setSelectedAccount((prev) =>
-          prev && allAccs.some((a) => a._id === prev) ? prev : allAccs[0]._id
-        );
-      } else {
-        setSelectedAccount('');
-      }
 
       const allCats = catRes || [];
       setCategories(allCats);
 
-      // Auto-selecionar primeira categoria compatível com o tipo
+      // Auto-selecionar primeira categoria correspondente ao tipo atual
       const matchingCats = allCats.filter((c: any) => c.type === type);
       if (matchingCats.length > 0) {
         setSelectedCategory((prev) =>
@@ -86,7 +71,7 @@ export default function TransactionsScreen() {
     loadData();
   }, [loadData]);
 
-  // Ao mudar de despesa para receita ou vice-versa, atualiza seleção de categoria
+  // Ao alternar entre Receita e Despesa, atualiza as categorias correspondentes
   const handleTypeChange = (newType: 'income' | 'expense') => {
     setType(newType);
     const matchingCats = categories.filter((c) => c.type === newType);
@@ -97,37 +82,14 @@ export default function TransactionsScreen() {
     }
   };
 
-  // Criação rápida de conta dentro do modal para não travar o fluxo
-  const handleQuickCreateAccount = async (accountName: string, accountType: string = 'checking') => {
-    try {
-      setCreatingAccount(true);
-      const newAcc = await api.createAccount({
-        name: accountName,
-        type: accountType,
-        initialBalanceCents: 0,
-        ownerType: 'user',
-      });
-      await loadData();
-      if (newAcc?._id) {
-        setSelectedAccount(newAcc._id);
-      }
-      Alert.alert('Conta criada', `Conta "${accountName}" criada e selecionada com sucesso!`);
-    } catch (err: any) {
-      console.error('Erro ao criar conta rápida:', err);
-      Alert.alert('Erro', err.message || 'Falha ao criar conta.');
-    } finally {
-      setCreatingAccount(false);
-    }
-  };
-
   const handleCreateTransaction = async () => {
     if (!description.trim()) {
-      Alert.alert('Atenção', 'Informe uma descrição para a movimentação.');
+      Alert.alert('Atenção', 'Informe uma descrição.');
       return;
     }
 
     if (!amountInput.trim()) {
-      Alert.alert('Atenção', 'Informe um valor para a movimentação.');
+      Alert.alert('Atenção', 'Informe o valor.');
       return;
     }
 
@@ -137,21 +99,12 @@ export default function TransactionsScreen() {
       return;
     }
 
-    if (!selectedAccount) {
-      Alert.alert(
-        'Atenção',
-        'Você precisa de uma conta ativa para salvar. Crie uma conta rápida clicando no botão abaixo.'
-      );
-      return;
-    }
-
     try {
       setSaving(true);
       await api.createTransaction({
         description: description.trim(),
         amountCents,
         type,
-        accountId: selectedAccount,
         categoryId: selectedCategory || undefined,
         status: 'paid',
         date: new Date().toISOString(),
@@ -161,10 +114,10 @@ export default function TransactionsScreen() {
       setDescription('');
       setAmountInput('');
       await loadData();
-      Alert.alert('Sucesso', 'Movimentação registrada com sucesso!');
+      Alert.alert('Sucesso', `${type === 'income' ? 'Receita' : 'Despesa'} salva com sucesso!`);
     } catch (err: any) {
-      console.error('Erro ao criar transação:', err);
-      Alert.alert('Erro ao Salvar', err.message || 'Falha ao registrar movimentação.');
+      console.error('Erro ao salvar movimentação:', err);
+      Alert.alert('Erro', err.message || 'Falha ao salvar lançamento.');
     } finally {
       setSaving(false);
     }
@@ -265,10 +218,7 @@ export default function TransactionsScreen() {
                     {item.description}
                   </Text>
                   <Text style={[styles.sub, { color: theme.textMuted }]}>
-                    {item.categoryId?.name || 'Sem Categoria'} • {formatDate(item.date)}
-                  </Text>
-                  <Text style={[styles.accSub, { color: theme.textMuted }]}>
-                    Conta: {item.accountId?.name || 'Geral'}
+                    {item.categoryId?.name || (item.type === 'income' ? 'Receita' : 'Despesa')} • {formatDate(item.date)}
                   </Text>
                 </View>
               </View>
@@ -315,15 +265,7 @@ export default function TransactionsScreen() {
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Botão Flutuante para Transferência */}
-      <TouchableOpacity
-        style={[styles.fab, styles.fabTransfer, { backgroundColor: theme.transfer }]}
-        onPress={() => router.push('/transfer')}
-      >
-        <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
-
-      {/* Modal de Criação de Lançamento */}
+      {/* Modal de Criação (Apenas Receita ou Despesa) */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -332,7 +274,7 @@ export default function TransactionsScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
-                Nova Movimentação
+                Novo Lançamento
               </Text>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
@@ -358,7 +300,7 @@ export default function TransactionsScreen() {
                 >
                   <Ionicons
                     name="arrow-up"
-                    size={16}
+                    size={18}
                     color={type === 'expense' ? '#FFFFFF' : theme.textMuted}
                     style={{ marginRight: 6 }}
                   />
@@ -381,7 +323,7 @@ export default function TransactionsScreen() {
                 >
                   <Ionicons
                     name="arrow-down"
-                    size={16}
+                    size={18}
                     color={type === 'income' ? '#FFFFFF' : theme.textMuted}
                     style={{ marginRight: 6 }}
                   />
@@ -427,107 +369,16 @@ export default function TransactionsScreen() {
                 onChangeText={setAmountInput}
               />
 
-              {/* Seletor de Conta */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.inputLabel, { color: theme.text, marginBottom: 0 }]}>
-                  Conta
-                </Text>
-                <TouchableOpacity onPress={() => handleQuickCreateAccount('Nova Conta', 'checking')}>
-                  <Text style={[styles.quickAddText, { color: theme.primary }]}>+ Nova conta</Text>
-                </TouchableOpacity>
-              </View>
-
-              {accounts.length === 0 ? (
-                <View style={[styles.noAccountBox, { borderColor: theme.border }]}>
-                  <Ionicons name="wallet-outline" size={28} color={theme.primary} />
-                  <Text style={[styles.noAccountTitle, { color: theme.text }]}>
-                    Nenhuma conta cadastrada
-                  </Text>
-                  <Text style={[styles.noAccountSub, { color: theme.textMuted }]}>
-                    Crie uma conta rápida para poder registrar e vincular suas movimentações:
-                  </Text>
-                  <View style={styles.quickCreateRow}>
-                    <TouchableOpacity
-                      style={[styles.quickCreateBtn, { backgroundColor: theme.primary }]}
-                      onPress={() => handleQuickCreateAccount('Carteira', 'cash')}
-                      disabled={creatingAccount}
-                    >
-                      {creatingAccount ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <Text style={styles.quickCreateBtnText}>+ Criar Carteira</Text>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.quickCreateBtn, { backgroundColor: '#10B981' }]}
-                      onPress={() => handleQuickCreateAccount('Conta Corrente', 'checking')}
-                      disabled={creatingAccount}
-                    >
-                      {creatingAccount ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <Text style={styles.quickCreateBtnText}>+ Criar Conta Corrente</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.chipsScroll}
-                >
-                  {accounts.map((acc) => {
-                    const isSelected = selectedAccount === acc._id;
-                    return (
-                      <TouchableOpacity
-                        key={acc._id}
-                        style={[
-                          styles.accountChip,
-                          {
-                            borderColor: isSelected ? theme.primary : theme.border,
-                            backgroundColor: isSelected ? theme.primary + '18' : theme.background,
-                          },
-                        ]}
-                        onPress={() => setSelectedAccount(acc._id)}
-                      >
-                        <Ionicons
-                          name={acc.type === 'cash' ? 'cash-outline' : 'card-outline'}
-                          size={16}
-                          color={isSelected ? theme.primary : theme.textMuted}
-                        />
-                        <View style={{ marginLeft: 6 }}>
-                          <Text
-                            style={[
-                              styles.chipTitle,
-                              {
-                                color: isSelected ? theme.primary : theme.text,
-                                fontWeight: isSelected ? '700' : '500',
-                              },
-                            ]}
-                          >
-                            {acc.name}
-                          </Text>
-                          <Text style={[styles.chipSubtitle, { color: theme.textMuted }]}>
-                            {formatCurrency(acc.balanceCents || acc.initialBalanceCents || 0)}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
-
               {/* Seletor de Categoria */}
               <Text style={[styles.inputLabel, { color: theme.text, marginTop: 14 }]}>
-                Categoria ({type === 'expense' ? 'Despesas' : 'Receitas'})
+                Categoria
               </Text>
               {(() => {
                 const filteredCats = categories.filter((c) => c.type === type);
                 if (filteredCats.length === 0) {
                   return (
                     <Text style={{ color: theme.textMuted, fontSize: 13, marginVertical: 8 }}>
-                      Nenhuma categoria de {type === 'expense' ? 'despesa' : 'receita'} disponível.
+                      Nenhuma categoria cadastrada.
                     </Text>
                   );
                 }
@@ -571,16 +422,18 @@ export default function TransactionsScreen() {
                 style={[
                   styles.submitBtn,
                   {
-                    backgroundColor: accounts.length === 0 ? '#94A3B8' : theme.primary,
+                    backgroundColor: type === 'income' ? theme.income : theme.expense,
                   },
                 ]}
                 onPress={handleCreateTransaction}
-                disabled={saving || accounts.length === 0}
+                disabled={saving}
               >
                 {saving ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Salvar Lançamento</Text>
+                  <Text style={styles.submitBtnText}>
+                    Salvar {type === 'income' ? 'Receita' : 'Despesa'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -619,7 +472,6 @@ const styles = StyleSheet.create({
   },
   desc: { fontSize: 15, fontWeight: '600' },
   sub: { fontSize: 12, marginTop: 2 },
-  accSub: { fontSize: 11, marginTop: 1 },
   cardRight: { alignItems: 'flex-end', gap: 6 },
   amount: { fontSize: 15, fontWeight: '700' },
   deleteBtn: { padding: 4 },
@@ -638,9 +490,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-  },
-  fabTransfer: {
-    bottom: 90,
   },
   modalOverlay: {
     flex: 1,
@@ -669,54 +518,22 @@ const styles = StyleSheet.create({
   },
   typeBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  typeBtnText: { fontSize: 14, fontWeight: '600' },
+  typeBtnText: { fontSize: 15, fontWeight: '700' },
   inputLabel: { fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   input: {
-    height: 46,
+    height: 48,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  quickAddText: { fontSize: 13, fontWeight: '600' },
-  noAccountBox: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  noAccountTitle: { fontSize: 14, fontWeight: '700', marginTop: 6 },
-  noAccountSub: { fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: 10 },
-  quickCreateRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
-  quickCreateBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  quickCreateBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   chipsScroll: { paddingVertical: 6, gap: 8 },
-  accountChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  chipTitle: { fontSize: 13 },
-  chipSubtitle: { fontSize: 11 },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -726,12 +543,12 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { fontSize: 13, fontWeight: '600' },
   submitBtn: {
-    height: 48,
+    height: 50,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 16,
   },
-  submitBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  submitBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

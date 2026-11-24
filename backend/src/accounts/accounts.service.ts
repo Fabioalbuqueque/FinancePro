@@ -86,4 +86,25 @@ export class AccountsService {
 
     return account;
   }
+
+  async getOrCreateDefaultAccount(userId: Types.ObjectId) {
+    let account = await this.accountModel.findOne({
+      ownerType: 'user',
+      ownerId: userId,
+      status: 'active',
+    });
+
+    if (!account) {
+      account = await this.accountModel.create({
+        name: 'Principal',
+        ownerType: 'user',
+        ownerId: userId,
+        type: 'checking',
+        initialBalanceCents: 0,
+        status: 'active',
+      });
+    }
+
+    return account;
+  }
 }

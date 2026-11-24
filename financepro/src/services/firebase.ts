@@ -105,4 +105,15 @@ export const subscribeAuth = (callback: (user: User | null, idToken: string | nu
   return unsubscribe;
 };
 
-export default { register, login, logout, subscribeAuth };
+export const getFreshIdToken = async (forceRefresh = false): Promise<string | null> => {
+  try {
+    if (auth.currentUser) {
+      return await auth.currentUser.getIdToken(forceRefresh);
+    }
+  } catch (err) {
+    console.log("Erro ao renovar token do Firebase:", err);
+  }
+  return null;
+};
+
+export default { register, login, logout, subscribeAuth, getFreshIdToken };

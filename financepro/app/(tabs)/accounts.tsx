@@ -57,8 +57,9 @@ export default function AccountsScreen() {
   const [familyAccounts, setFamilyAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal nova conta
+  // Modal nova/editar conta
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('checking');
   const [initialBalance, setInitialBalance] = useState('');
@@ -110,38 +111,46 @@ export default function AccountsScreen() {
 
     try {
       setSaving(true);
-      await api.createAccount({
-        name: name.trim(),
-        type,
-        initialBalanceCents,
-        ownerType,
-      });
 
-      const perm = await notificationService.requestPermission();
-      if (perm) {
-        await notificationService.scheduleMonthlyReport();
-        Alert.alert(
-          'Sucesso',
-          ownerType === 'family'
-            ? 'Conta familiar cadastrada! Lembrete de relatório mensal agendado.'
-            : 'Conta cadastrada! Lembrete de relatório mensal agendado.'
-        );
+      if (editingId) {
+        // Modo edição
+        await api.updateAccount(editingId, {
+          name: name.trim(),
+          type,
+          initialBalanceCents,
+        });
       } else {
-        Alert.alert(
-          'Sucesso',
-          ownerType === 'family'
-            ? 'Conta familiar cadastrada com sucesso!'
-            : 'Conta cadastrada com sucesso!'
-        );
+        // Modo criação
+        await api.createAccount({
+          name: name.trim(),
+          type,
+          initialBalanceCents,
+          ownerType,
+        });
+
+        // Agendar notificação de relatório mensal apenas na criação
+        const perm = await notificationService.requestPermission();
+        if (perm) {
+          await notificationService.scheduleMonthlyReport();
+        }
       }
 
       setModalVisible(false);
       setName('');
       setInitialBalance('');
+      setEditingId(null);
       loadAccounts();
+      Alert.alert(
+        'Sucesso',
+        editingId
+          ? 'Conta atualizada com sucesso!'
+          : ownerType === 'family'
+            ? 'Conta familiar cadastrada com sucesso!'
+            : 'Conta cadastrada com sucesso!'
+      );
     } catch (err: any) {
-      console.error('Erro ao criar conta:', err);
-      const errorMessage = err.message || 'Falha ao cadastrar conta.';
+      console.error('Erro ao salvar conta:', err);
+      const errorMessage = err.message || 'Falha ao salvar conta.';
       if (ownerType === 'family' && errorMessage.includes('família')) {
         Alert.alert(
           'Nenhuma família ativa',
@@ -162,13 +171,52 @@ export default function AccountsScreen() {
     }
   };
 
-  const openModal = (owner: 'user' | 'family') => {
+  const handleDeleteAccount = (acc: any) => {
+    Alert.alert(
+      'Excluir conta',
+      `Deseja realmente excluir "${acc.name}"?\nEsta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteAccount(acc._id);
+              Alert.alert('Sucesso', 'Conta excluída com sucesso.');
+              loadAccounts();
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao excluir conta.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openCreateModal = (owner: 'user' | 'family') => {
     setOwnerType(owner);
+    setEditingId(null);
+    setName('');
+    setInitialBalance('');
     setType('checking');
     setModalVisible(true);
   };
 
-  const renderAccountCard = (acc: any) => {
+  const openEditModal = (acc: any, owner: 'user' | 'family') => {
+    setOwnerType(owner);
+    setEditingId(acc._id);
+    setName(acc.name || '');
+    setInitialBalance(
+      acc.initialBalanceCents
+        ? (acc.initialBalanceCents / 100).toFixed(2).replace('.', ',')
+        : ''
+    );
+    setType(acc.type || 'checking');
+    setModalVisible(true);
+  };
+
+  const renderAccountCard = (acc: any, owner: 'user' | 'family') => {
     const accStyle =
       ACCOUNT_STYLE[(acc.type as AccountType) || 'checking'] || ACCOUNT_STYLE.checking;
     const isPositive = (acc.initialBalanceCents || 0) >= 0;
@@ -201,12 +249,21 @@ export default function AccountsScreen() {
               {accStyle.label}
             </Text>
           </View>
-          <View style={[styles.typeBadge, { backgroundColor: accStyle.bg }]}>
-            <Ionicons
-              name={acc.type === 'savings' ? 'trending-up-outline' : 'wallet-outline'}
-              size={12}
-              color={accStyle.color}
-            />
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
+              onPress={() => openEditModal(acc, owner)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="create-outline" size={16} color={theme.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: '#FEE2E2' }]}
+              onPress={() => handleDeleteAccount(acc)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+            </TouchableOpacity>
           </View>
         </View>
         <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
@@ -242,7 +299,7 @@ export default function AccountsScreen() {
           styles.emptyCard,
           { backgroundColor: theme.card, borderColor: theme.border },
         ]}
-        onPress={() => openModal(owner)}
+        onPress={() => openCreateModal(owner)}
         activeOpacity={0.7}
       >
         <View
@@ -346,7 +403,7 @@ export default function AccountsScreen() {
         {personalAccounts.length === 0 ? (
           renderEmptyState('user')
         ) : (
-          personalAccounts.map(renderAccountCard)
+          personalAccounts.map((acc) => renderAccountCard(acc, 'user'))
         )}
 
         {/* Seção Familiar */}
@@ -367,14 +424,14 @@ export default function AccountsScreen() {
         {familyAccounts.length === 0 ? (
           renderEmptyState('family')
         ) : (
-          familyAccounts.map(renderAccountCard)
+          familyAccounts.map((acc) => renderAccountCard(acc, 'family'))
         )}
       </ScrollView>
 
       {/* Botão Flutuante */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.primary }]}
-        onPress={() => openModal('user')}
+        onPress={() => openCreateModal('user')}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -387,9 +444,13 @@ export default function AccountsScreen() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  {ownerType === 'family' ? 'Nova Conta Familiar' : 'Nova Conta Individual'}
+                  {editingId
+                    ? 'Editar Conta'
+                    : ownerType === 'family'
+                      ? 'Nova Conta Familiar'
+                      : 'Nova Conta Individual'}
                 </Text>
-                {ownerType === 'family' && (
+                {!editingId && ownerType === 'family' && (
                   <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
                     Compartilhada com seu grupo familiar
                   </Text>
@@ -479,8 +540,14 @@ export default function AccountsScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.submitBtnText}>Criar Conta</Text>
+                  <Ionicons
+                    name={editingId ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.submitBtnText}>
+                    {editingId ? 'Salvar Alterações' : 'Criar Conta'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -574,10 +641,16 @@ const styles = StyleSheet.create({
   },
   accName: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
   accType: { fontSize: 12, marginTop: 2 },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  cardActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardFooter: {
     flexDirection: 'row',

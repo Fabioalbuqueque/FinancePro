@@ -121,6 +121,14 @@ class ApiService {
     return await this.request('POST', '/accounts', data);
   }
 
+  async updateAccount(id: string, data: { name?: string; type?: string; initialBalanceCents?: number }) {
+    return await this.request('PATCH', `/accounts/${id}`, data);
+  }
+
+  async deleteAccount(id: string) {
+    return await this.request('DELETE', `/accounts/${id}`);
+  }
+
   // Categorias
   async getCategories() {
     return await this.request('GET', '/categories');

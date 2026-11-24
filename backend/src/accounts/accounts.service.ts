@@ -65,6 +65,9 @@ export class AccountsService {
   }
 
   async getAccountById(accountId: string, userId: Types.ObjectId) {
+    if (!Types.ObjectId.isValid(accountId)) {
+      throw new BadRequestException('Identificador de conta inválido');
+    }
     const account = await this.accountModel.findById(accountId);
     if (!account) {
       throw new NotFoundException('Conta não encontrada');

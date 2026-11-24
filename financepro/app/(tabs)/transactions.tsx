@@ -4,11 +4,14 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   Modal,
   TextInput,
   Alert,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -32,6 +35,7 @@ export default function TransactionsScreen() {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [saving, setSaving] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const theme = useThemeColors();
 
@@ -40,30 +44,81 @@ export default function TransactionsScreen() {
       const params: any = {};
       if (filterType) params.type = filterType;
 
-      const txRes: any = await api.getTransactions(params);
-      const accRes: any = await api.getAccounts();
-      const catRes: any = await api.getCategories();
+      const [txRes, accRes, catRes]: [any, any, any] = await Promise.all([
+        api.getTransactions(params),
+        api.getAccounts(),
+        api.getCategories(),
+      ]);
 
       setTransactions(txRes.items || []);
       const allAccs = [...(accRes.personal || []), ...(accRes.family || [])];
       setAccounts(allAccs);
-      if (allAccs.length > 0 && !selectedAccount) {
-        setSelectedAccount(allAccs[0]._id);
+
+      // Auto-selecionar conta válida
+      if (allAccs.length > 0) {
+        setSelectedAccount((prev) =>
+          prev && allAccs.some((a) => a._id === prev) ? prev : allAccs[0]._id
+        );
+      } else {
+        setSelectedAccount('');
       }
-      setCategories(catRes || []);
-      if (catRes.length > 0 && !selectedCategory) {
-        setSelectedCategory(catRes[0]._id);
+
+      const allCats = catRes || [];
+      setCategories(allCats);
+
+      // Auto-selecionar primeira categoria compatível com o tipo
+      const matchingCats = allCats.filter((c: any) => c.type === type);
+      if (matchingCats.length > 0) {
+        setSelectedCategory((prev) =>
+          prev && matchingCats.some((c: any) => c._id === prev) ? prev : matchingCats[0]._id
+        );
+      } else {
+        setSelectedCategory('');
       }
     } catch (err) {
-      console.log('Erro ao carregar transações', err);
+      console.log('Erro ao carregar dados de transações', err);
     } finally {
       setLoading(false);
     }
-  }, [filterType]);
+  }, [filterType, type]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Ao mudar de despesa para receita ou vice-versa, atualiza seleção de categoria
+  const handleTypeChange = (newType: 'income' | 'expense') => {
+    setType(newType);
+    const matchingCats = categories.filter((c) => c.type === newType);
+    if (matchingCats.length > 0) {
+      setSelectedCategory(matchingCats[0]._id);
+    } else {
+      setSelectedCategory('');
+    }
+  };
+
+  // Criação rápida de conta dentro do modal para não travar o fluxo
+  const handleQuickCreateAccount = async (accountName: string, accountType: string = 'checking') => {
+    try {
+      setCreatingAccount(true);
+      const newAcc = await api.createAccount({
+        name: accountName,
+        type: accountType,
+        initialBalanceCents: 0,
+        ownerType: 'user',
+      });
+      await loadData();
+      if (newAcc?._id) {
+        setSelectedAccount(newAcc._id);
+      }
+      Alert.alert('Conta criada', `Conta "${accountName}" criada e selecionada com sucesso!`);
+    } catch (err: any) {
+      console.error('Erro ao criar conta rápida:', err);
+      Alert.alert('Erro', err.message || 'Falha ao criar conta.');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
 
   const handleCreateTransaction = async () => {
     if (!description.trim()) {
@@ -76,26 +131,22 @@ export default function TransactionsScreen() {
       return;
     }
 
-    if (!selectedAccount) {
-      Alert.alert('Atenção', 'Selecione uma conta de destino.');
-      return;
-    }
-
     const amountCents = parseBrlToCents(amountInput);
     if (amountCents <= 0) {
       Alert.alert('Atenção', 'Informe um valor maior que zero.');
       return;
     }
 
+    if (!selectedAccount) {
+      Alert.alert(
+        'Atenção',
+        'Você precisa de uma conta ativa para salvar. Crie uma conta rápida clicando no botão abaixo.'
+      );
+      return;
+    }
+
     try {
       setSaving(true);
-      console.log('Criando transação com dados:', {
-        description,
-        amountCents,
-        type,
-        accountId: selectedAccount,
-        categoryId: selectedCategory || undefined,
-      });
       await api.createTransaction({
         description: description.trim(),
         amountCents,
@@ -109,11 +160,11 @@ export default function TransactionsScreen() {
       setModalVisible(false);
       setDescription('');
       setAmountInput('');
-      loadData();
+      await loadData();
       Alert.alert('Sucesso', 'Movimentação registrada com sucesso!');
     } catch (err: any) {
       console.error('Erro ao criar transação:', err);
-      Alert.alert('Erro', err.message || 'Falha ao registrar movimentação.');
+      Alert.alert('Erro ao Salvar', err.message || 'Falha ao registrar movimentação.');
     } finally {
       setSaving(false);
     }
@@ -209,15 +260,15 @@ export default function TransactionsScreen() {
                     }
                   />
                 </View>
-                <View>
-                  <Text style={[styles.desc, { color: theme.text }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.desc, { color: theme.text }]} numberOfLines={1}>
                     {item.description}
                   </Text>
                   <Text style={[styles.sub, { color: theme.textMuted }]}>
                     {item.categoryId?.name || 'Sem Categoria'} • {formatDate(item.date)}
                   </Text>
                   <Text style={[styles.accSub, { color: theme.textMuted }]}>
-                    Conta: {item.accountId?.name || 'Geral'} • Por: {item.userId?.name || 'Eu'}
+                    Conta: {item.accountId?.name || 'Geral'}
                   </Text>
                 </View>
               </View>
@@ -274,83 +325,267 @@ export default function TransactionsScreen() {
 
       {/* Modal de Criação de Lançamento */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
                 Nova Movimentação
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="close" size={24} color={theme.textMuted} />
               </TouchableOpacity>
             </View>
 
-            {/* Alternador Despesa / Receita */}
-            <View style={styles.typeSelector}>
-              <TouchableOpacity
-                style={[
-                  styles.typeBtn,
-                  type === 'expense' && { backgroundColor: theme.expense },
-                ]}
-                onPress={() => setType('expense')}
-              >
-                <Text
-                  style={[
-                    styles.typeBtnText,
-                    { color: type === 'expense' ? '#FFFFFF' : theme.textMuted },
-                  ]}
-                >
-                  Despesa
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.typeBtn,
-                  type === 'income' && { backgroundColor: theme.income },
-                ]}
-                onPress={() => setType('income')}
-              >
-                <Text
-                  style={[
-                    styles.typeBtnText,
-                    { color: type === 'income' ? '#FFFFFF' : theme.textMuted },
-                  ]}
-                >
-                  Receita
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.inputLabel, { color: theme.text }]}>Descrição</Text>
-            <TextInput
-              style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-              placeholder="Ex: Aluguel, Supermercado, Salário"
-              value={description}
-              onChangeText={setDescription}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.text }]}>Valor (R$)</Text>
-            <TextInput
-              style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-              placeholder="Ex: 150,00"
-              keyboardType="numeric"
-              value={amountInput}
-              onChangeText={setAmountInput}
-            />
-
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: theme.primary }]}
-              onPress={handleCreateTransaction}
-              disabled={saving}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 24 }}
             >
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" />
+              {/* Alternador Despesa / Receita */}
+              <View style={styles.typeSelector}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    type === 'expense' && { backgroundColor: theme.expense },
+                  ]}
+                  onPress={() => handleTypeChange('expense')}
+                >
+                  <Ionicons
+                    name="arrow-up"
+                    size={16}
+                    color={type === 'expense' ? '#FFFFFF' : theme.textMuted}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.typeBtnText,
+                      { color: type === 'expense' ? '#FFFFFF' : theme.textMuted },
+                    ]}
+                  >
+                    Despesa
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    type === 'income' && { backgroundColor: theme.income },
+                  ]}
+                  onPress={() => handleTypeChange('income')}
+                >
+                  <Ionicons
+                    name="arrow-down"
+                    size={16}
+                    color={type === 'income' ? '#FFFFFF' : theme.textMuted}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.typeBtnText,
+                      { color: type === 'income' ? '#FFFFFF' : theme.textMuted },
+                    ]}
+                  >
+                    Receita
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Descrição */}
+              <Text style={[styles.inputLabel, { color: theme.text }]}>Descrição</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
+                ]}
+                placeholder={
+                  type === 'expense'
+                    ? 'Ex: Supermercado, Aluguel, Farmácia'
+                    : 'Ex: Salário, Freelance, Rendimentos'
+                }
+                placeholderTextColor={theme.textMuted}
+                value={description}
+                onChangeText={setDescription}
+              />
+
+              {/* Valor */}
+              <Text style={[styles.inputLabel, { color: theme.text }]}>Valor (R$)</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
+                ]}
+                placeholder="Ex: 150,00"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={amountInput}
+                onChangeText={setAmountInput}
+              />
+
+              {/* Seletor de Conta */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.inputLabel, { color: theme.text, marginBottom: 0 }]}>
+                  Conta
+                </Text>
+                <TouchableOpacity onPress={() => handleQuickCreateAccount('Nova Conta', 'checking')}>
+                  <Text style={[styles.quickAddText, { color: theme.primary }]}>+ Nova conta</Text>
+                </TouchableOpacity>
+              </View>
+
+              {accounts.length === 0 ? (
+                <View style={[styles.noAccountBox, { borderColor: theme.border }]}>
+                  <Ionicons name="wallet-outline" size={28} color={theme.primary} />
+                  <Text style={[styles.noAccountTitle, { color: theme.text }]}>
+                    Nenhuma conta cadastrada
+                  </Text>
+                  <Text style={[styles.noAccountSub, { color: theme.textMuted }]}>
+                    Crie uma conta rápida para poder registrar e vincular suas movimentações:
+                  </Text>
+                  <View style={styles.quickCreateRow}>
+                    <TouchableOpacity
+                      style={[styles.quickCreateBtn, { backgroundColor: theme.primary }]}
+                      onPress={() => handleQuickCreateAccount('Carteira', 'cash')}
+                      disabled={creatingAccount}
+                    >
+                      {creatingAccount ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.quickCreateBtnText}>+ Criar Carteira</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.quickCreateBtn, { backgroundColor: '#10B981' }]}
+                      onPress={() => handleQuickCreateAccount('Conta Corrente', 'checking')}
+                      disabled={creatingAccount}
+                    >
+                      {creatingAccount ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.quickCreateBtnText}>+ Criar Conta Corrente</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ) : (
-                <Text style={styles.submitBtnText}>Salvar Lançamento</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipsScroll}
+                >
+                  {accounts.map((acc) => {
+                    const isSelected = selectedAccount === acc._id;
+                    return (
+                      <TouchableOpacity
+                        key={acc._id}
+                        style={[
+                          styles.accountChip,
+                          {
+                            borderColor: isSelected ? theme.primary : theme.border,
+                            backgroundColor: isSelected ? theme.primary + '18' : theme.background,
+                          },
+                        ]}
+                        onPress={() => setSelectedAccount(acc._id)}
+                      >
+                        <Ionicons
+                          name={acc.type === 'cash' ? 'cash-outline' : 'card-outline'}
+                          size={16}
+                          color={isSelected ? theme.primary : theme.textMuted}
+                        />
+                        <View style={{ marginLeft: 6 }}>
+                          <Text
+                            style={[
+                              styles.chipTitle,
+                              {
+                                color: isSelected ? theme.primary : theme.text,
+                                fontWeight: isSelected ? '700' : '500',
+                              },
+                            ]}
+                          >
+                            {acc.name}
+                          </Text>
+                          <Text style={[styles.chipSubtitle, { color: theme.textMuted }]}>
+                            {formatCurrency(acc.balanceCents || acc.initialBalanceCents || 0)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               )}
-            </TouchableOpacity>
+
+              {/* Seletor de Categoria */}
+              <Text style={[styles.inputLabel, { color: theme.text, marginTop: 14 }]}>
+                Categoria ({type === 'expense' ? 'Despesas' : 'Receitas'})
+              </Text>
+              {(() => {
+                const filteredCats = categories.filter((c) => c.type === type);
+                if (filteredCats.length === 0) {
+                  return (
+                    <Text style={{ color: theme.textMuted, fontSize: 13, marginVertical: 8 }}>
+                      Nenhuma categoria de {type === 'expense' ? 'despesa' : 'receita'} disponível.
+                    </Text>
+                  );
+                }
+                return (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipsScroll}
+                  >
+                    {filteredCats.map((cat) => {
+                      const isSelected = selectedCategory === cat._id;
+                      return (
+                        <TouchableOpacity
+                          key={cat._id}
+                          style={[
+                            styles.categoryChip,
+                            {
+                              borderColor: isSelected ? theme.primary : theme.border,
+                              backgroundColor: isSelected ? theme.primary : theme.background,
+                            },
+                          ]}
+                          onPress={() => setSelectedCategory(cat._id)}
+                        >
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              { color: isSelected ? '#FFFFFF' : theme.text },
+                            ]}
+                          >
+                            {cat.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                );
+              })()}
+
+              {/* Botão de Salvar */}
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  {
+                    backgroundColor: accounts.length === 0 ? '#94A3B8' : theme.primary,
+                  },
+                ]}
+                onPress={handleCreateTransaction}
+                disabled={saving || accounts.length === 0}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Salvar Lançamento</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -416,12 +651,13 @@ const styles = StyleSheet.create({
     padding: 24,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   typeSelector: {
@@ -431,7 +667,14 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 16,
   },
-  typeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  typeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
   typeBtnText: { fontSize: 14, fontWeight: '600' },
   inputLabel: { fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   input: {
@@ -441,6 +684,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  quickAddText: { fontSize: 13, fontWeight: '600' },
+  noAccountBox: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  noAccountTitle: { fontSize: 14, fontWeight: '700', marginTop: 6 },
+  noAccountSub: { fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: 10 },
+  quickCreateRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
+  quickCreateBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  quickCreateBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+  chipsScroll: { paddingVertical: 6, gap: 8 },
+  accountChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  chipTitle: { fontSize: 13 },
+  chipSubtitle: { fontSize: 11 },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  categoryChipText: { fontSize: 13, fontWeight: '600' },
   submitBtn: {
     height: 48,
     borderRadius: 10,

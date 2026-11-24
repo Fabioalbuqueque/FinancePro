@@ -25,6 +25,9 @@ export class TransactionsService {
   ) {}
 
   async createTransaction(userId: Types.ObjectId, dto: CreateTransactionDto) {
+    if (dto.categoryId && !Types.ObjectId.isValid(dto.categoryId)) {
+      throw new BadRequestException('Identificador de categoria inválido');
+    }
     const account = await this.accountsService.getAccountById(dto.accountId, userId);
 
     let ownerId = userId;

@@ -166,21 +166,9 @@ export default function DashboardScreen() {
           >
             <View style={styles.txIconContainer}>
               <Ionicons
-                name={
-                  tx.type === 'income'
-                    ? 'arrow-down'
-                    : tx.type === 'expense'
-                    ? 'arrow-up'
-                    : 'swap-horizontal'
-                }
+                name={tx.type === 'income' ? 'arrow-down' : 'arrow-up'}
                 size={20}
-                color={
-                  tx.type === 'income'
-                    ? theme.income
-                    : tx.type === 'expense'
-                    ? theme.expense
-                    : theme.transfer
-                }
+                color={tx.type === 'income' ? theme.income : theme.expense}
               />
             </View>
             <View style={styles.txDetails}>
@@ -195,12 +183,7 @@ export default function DashboardScreen() {
               style={[
                 styles.txAmount,
                 {
-                  color:
-                    tx.type === 'income'
-                      ? theme.income
-                      : tx.type === 'expense'
-                      ? theme.expense
-                      : theme.transfer,
+                  color: tx.type === 'income' ? theme.income : theme.expense,
                 },
               ]}
             >

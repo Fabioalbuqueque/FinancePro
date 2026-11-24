@@ -149,7 +149,6 @@ export default function TransactionsScreen() {
           { label: 'Todas', value: '' },
           { label: 'Receitas', value: 'income' },
           { label: 'Despesas', value: 'expense' },
-          { label: 'Transferências', value: 'transfer' },
         ].map((f) => (
           <TouchableOpacity
             key={f.value}
@@ -187,30 +186,14 @@ export default function TransactionsScreen() {
                     styles.iconBox,
                     {
                       backgroundColor:
-                        item.type === 'income'
-                          ? '#DCFCE7'
-                          : item.type === 'expense'
-                          ? '#FEE2E2'
-                          : '#DBEAFE',
+                        item.type === 'income' ? '#DCFCE7' : '#FEE2E2',
                     },
                   ]}
                 >
                   <Ionicons
-                    name={
-                      item.type === 'income'
-                        ? 'arrow-down'
-                        : item.type === 'expense'
-                        ? 'arrow-up'
-                        : 'swap-horizontal'
-                    }
+                    name={item.type === 'income' ? 'arrow-down' : 'arrow-up'}
                     size={20}
-                    color={
-                      item.type === 'income'
-                        ? theme.income
-                        : item.type === 'expense'
-                        ? theme.expense
-                        : theme.transfer
-                    }
+                    color={item.type === 'income' ? theme.income : theme.expense}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -228,12 +211,7 @@ export default function TransactionsScreen() {
                   style={[
                     styles.amount,
                     {
-                      color:
-                        item.type === 'income'
-                          ? theme.income
-                          : item.type === 'expense'
-                          ? theme.expense
-                          : theme.transfer,
+                      color: item.type === 'income' ? theme.income : theme.expense,
                     },
                   ]}
                 >

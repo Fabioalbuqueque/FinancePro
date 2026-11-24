@@ -154,16 +154,6 @@ class ApiService {
     return await this.request('DELETE', `/transactions/${id}`);
   }
 
-  async createTransfer(data: {
-    fromAccountId: string;
-    toAccountId: string;
-    amountCents: number;
-    description?: string;
-    date: string;
-  }) {
-    return await this.request('POST', '/transactions/transfer', data);
-  }
-
   // Família
   async getCurrentFamily() {
     return await this.request('GET', '/families/current');

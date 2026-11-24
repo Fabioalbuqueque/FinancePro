@@ -132,7 +132,7 @@ class ApiService {
   }
 
   async inviteFamilyMember(email: string, role: string = 'member') {
-    return await this.request('POST', '/families/invite', { email, role });
+    return await this.request('POST', '/families/invitations', { email, role });
   }
 
   // Relatórios

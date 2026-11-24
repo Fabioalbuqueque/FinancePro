@@ -66,8 +66,18 @@ export default function TransactionsScreen() {
   }, [loadData]);
 
   const handleCreateTransaction = async () => {
-    if (!description || !amountInput || !selectedAccount) {
-      Alert.alert('Atenção', 'Preencha a descrição, valor e selecione a conta.');
+    if (!description.trim()) {
+      Alert.alert('Atenção', 'Informe uma descrição para a movimentação.');
+      return;
+    }
+
+    if (!amountInput.trim()) {
+      Alert.alert('Atenção', 'Informe um valor para a movimentação.');
+      return;
+    }
+
+    if (!selectedAccount) {
+      Alert.alert('Atenção', 'Selecione uma conta de destino.');
       return;
     }
 
@@ -79,8 +89,15 @@ export default function TransactionsScreen() {
 
     try {
       setSaving(true);
-      await api.createTransaction({
+      console.log('Criando transação com dados:', {
         description,
+        amountCents,
+        type,
+        accountId: selectedAccount,
+        categoryId: selectedCategory || undefined,
+      });
+      await api.createTransaction({
+        description: description.trim(),
         amountCents,
         type,
         accountId: selectedAccount,
@@ -95,6 +112,7 @@ export default function TransactionsScreen() {
       loadData();
       Alert.alert('Sucesso', 'Movimentação registrada com sucesso!');
     } catch (err: any) {
+      console.error('Erro ao criar transação:', err);
       Alert.alert('Erro', err.message || 'Falha ao registrar movimentação.');
     } finally {
       setSaving(false);

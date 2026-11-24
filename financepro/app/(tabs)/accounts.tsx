@@ -11,12 +11,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { api } from '../../src/services/api';
 import { formatCurrency, parseBrlToCents } from '../../src/utils/format';
 import { useThemeColors } from '../../src/theme/useThemeColors';
 import { notificationService } from '../../src/services/notifications';
 
 export default function AccountsScreen() {
+  const router = useRouter();
   const [personalAccounts, setPersonalAccounts] = useState<any[]>([]);
   const [familyAccounts, setFamilyAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,17 +50,19 @@ export default function AccountsScreen() {
   }, [loadAccounts]);
 
   const handleCreateAccount = async () => {
-    if (!name) {
+    if (!name.trim()) {
       Alert.alert('Atenção', 'Informe o nome da conta.');
       return;
     }
 
+    const initialBalanceCents = parseBrlToCents(initialBalance);
+
     try {
       setSaving(true);
       await api.createAccount({
-        name,
+        name: name.trim(),
         type,
-        initialBalanceCents: parseBrlToCents(initialBalance),
+        initialBalanceCents,
         ownerType,
       });
 
@@ -68,10 +72,17 @@ export default function AccountsScreen() {
         await notificationService.scheduleMonthlyReport();
         Alert.alert(
           'Sucesso',
-          'Conta cadastrada! Lembrete de relatório mensal agendado.'
+          ownerType === 'family'
+            ? 'Conta familiar cadastrada! Lembrete de relatório mensal agendado.'
+            : 'Conta cadastrada! Lembrete de relatório mensal agendado.'
         );
       } else {
-        Alert.alert('Sucesso', 'Conta cadastrada com sucesso!');
+        Alert.alert(
+          'Sucesso',
+          ownerType === 'family'
+            ? 'Conta familiar cadastrada com sucesso!'
+            : 'Conta cadastrada com sucesso!'
+        );
       }
 
       setModalVisible(false);
@@ -79,7 +90,23 @@ export default function AccountsScreen() {
       setInitialBalance('');
       loadAccounts();
     } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Falha ao cadastrar conta.');
+      console.error('Erro ao criar conta:', err);
+      const errorMessage = err.message || 'Falha ao cadastrar conta.';
+      if (ownerType === 'family' && errorMessage.includes('família')) {
+        Alert.alert(
+          'Nenhuma família ativa',
+          'Para criar uma conta familiar, você precisa primeiro criar um grupo familiar.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Ir para Família',
+              onPress: () => router.push('/(tabs)/family'),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erro', errorMessage);
+      }
     } finally {
       setSaving(false);
     }

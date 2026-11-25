@@ -89,7 +89,7 @@ export default function FamilyScreen() {
   };
 
   const familyNameStr = familyData?.family?.name || 'FinancePro';
-  const appDownloadUrl = 'https://financepro-six-chi.vercel.app/login';
+  const appDownloadUrl = 'https://financepro-six-chi.vercel.app/';
   const previewMessage = `Olá! Você foi convidado para participar do grupo "${familyNameStr}" no FinancePro.
 
 Se ainda não tem o app, acesse aqui:

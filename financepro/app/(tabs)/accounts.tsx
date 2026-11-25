@@ -54,6 +54,7 @@ const ACCOUNT_STYLE: Record<
 export default function AccountsScreen() {
   const router = useRouter();
   const [familyAccounts, setFamilyAccounts] = useState<any[]>([]);
+  const [familyTransactions, setFamilyTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasFamily, setHasFamily] = useState(false);
 
@@ -72,12 +73,14 @@ export default function AccountsScreen() {
 
   const loadAccounts = useCallback(async () => {
     try {
-      const [res, familyRes] = await Promise.all([
+      const [res, familyRes, txRes] = await Promise.all([
         api.getAccounts(),
         api.getCurrentFamily(),
+        api.getTransactions({ scope: 'family', limit: 10 }),
       ]);
       setFamilyAccounts(res.family || []);
       setHasFamily(!!familyRes);
+      setFamilyTransactions(txRes.items || []);
     } catch (err) {
       console.log('Erro ao carregar contas', err);
     } finally {
@@ -369,6 +372,12 @@ export default function AccountsScreen() {
             <Text style={[styles.summarySub, { color: theme.textMuted }]}>
               Somado de todas as contas compartilhadas
             </Text>
+            <View style={[styles.summaryNote, { backgroundColor: '#F1F5F9' }]}>
+              <Ionicons name="information-circle-outline" size={14} color={theme.textMuted} />
+              <Text style={[styles.summaryNoteText, { color: theme.textMuted }]}>
+                Você vê as transações feitas por qualquer membro da família.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -391,6 +400,65 @@ export default function AccountsScreen() {
           renderEmptyState()
         ) : (
           familyAccounts.map((acc) => renderAccountCard(acc))
+        )}
+
+        {/* Seção de Transações Familiares */}
+        {hasFamily && familyTransactions.length > 0 && (
+          <>
+            <View style={styles.sectionRow}>
+              <View style={styles.sectionTitleWrap}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Movimentações Recentes
+                </Text>
+                <View style={styles.sectionDotRow}>
+                  <View style={[styles.sectionDot, { backgroundColor: theme.primary }]} />
+                  <Text style={[styles.sectionCount, { color: theme.textMuted }]}>
+                    {familyTransactions.length}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {familyTransactions.map((tx) => {
+              const isIncome = tx.type === 'income';
+              return (
+                <View
+                  key={tx._id}
+                  style={[styles.txItem, { backgroundColor: theme.card }]}
+                >
+                  <View
+                    style={[
+                      styles.txIcon,
+                      { backgroundColor: isIncome ? '#DCFCE7' : '#FEE2E2' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={isIncome ? 'arrow-down' : 'arrow-up'}
+                      size={16}
+                      color={isIncome ? theme.income : theme.expense}
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.txDesc, { color: theme.text }]} numberOfLines={1}>
+                      {tx.description}
+                    </Text>
+                    <Text style={[styles.txMeta, { color: theme.textMuted }]}>
+                      {tx.accountId?.name || 'Conta'} • {tx.userId?.name || 'Membro'}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.txAmount,
+                      { color: isIncome ? theme.income : theme.expense },
+                    ]}
+                  >
+                    {isIncome ? '+ ' : '- '}
+                    {formatCurrency(tx.amountCents)}
+                  </Text>
+                </View>
+              );
+            })}
+          </>
         )}
       </ScrollView>
 
@@ -560,6 +628,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   summarySub: { fontSize: 12, marginTop: 2 },
+  summaryNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 14,
+  },
+  summaryNoteText: { fontSize: 11, flex: 1, lineHeight: 14 },
 
   sectionRow: {
     flexDirection: 'row',
@@ -572,6 +649,31 @@ const styles = StyleSheet.create({
   sectionDotRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sectionDot: { width: 7, height: 7, borderRadius: 4 },
   sectionCount: { fontSize: 12, fontWeight: '700' },
+
+  // Transações familiares
+  txItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  txIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txDesc: { fontSize: 14, fontWeight: '600' },
+  txMeta: { fontSize: 11, marginTop: 2 },
+  txAmount: { fontSize: 14, fontWeight: '700' },
 
   accCard: {
     borderRadius: 16,

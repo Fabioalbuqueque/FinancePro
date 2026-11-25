@@ -30,6 +30,7 @@ function createAuditModel() {
 function createAccountsService() {
   return {
     getAccountById: jest.fn(async () => ({ _id: account, ownerType: 'user', ownerId: user })),
+    getOrCreateDefaultAccount: jest.fn(async () => ({ _id: account, ownerType: 'user', ownerId: user })),
   };
 }
 

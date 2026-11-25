@@ -25,7 +25,16 @@ export class TransactionsService {
   ) {}
 
   async createTransaction(userId: Types.ObjectId, dto: CreateTransactionDto) {
-    const account = await this.accountsService.getAccountById(dto.accountId, userId);
+    if (dto.categoryId && !Types.ObjectId.isValid(dto.categoryId)) {
+      throw new BadRequestException('Identificador de categoria inválido');
+    }
+
+    let account;
+    if (dto.accountId && Types.ObjectId.isValid(dto.accountId)) {
+      account = await this.accountsService.getAccountById(dto.accountId, userId);
+    } else {
+      account = await this.accountsService.getOrCreateDefaultAccount(userId);
+    }
 
     let ownerId = userId;
     let ownerType = dto.ownerType || 'user';
@@ -43,13 +52,13 @@ export class TransactionsService {
       userId,
       ownerType,
       ownerId,
-      accountId: new Types.ObjectId(dto.accountId),
+      accountId: account._id,
       categoryId: dto.categoryId ? new Types.ObjectId(dto.categoryId) : undefined,
       type: dto.type,
       amountCents: Math.round(dto.amountCents),
       description: dto.description,
       status: dto.status || 'paid',
-      date: new Date(dto.date),
+      date: dto.date ? new Date(dto.date) : new Date(),
     });
 
     await this.auditLogModel.create({

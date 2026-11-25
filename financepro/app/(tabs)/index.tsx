@@ -12,8 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/services/api';
 import { formatCurrency, formatDate } from '../../src/utils/format';
 import { useThemeColors } from '../../src/theme/useThemeColors';
+import { useAuth } from '../../src/stores/auth';
 
 export default function DashboardScreen() {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -22,6 +24,7 @@ export default function DashboardScreen() {
   const theme = useThemeColors();
 
   const loadData = useCallback(async () => {
+    if (authLoading) return;
     try {
       const summary = await api.getDashboard(scope);
       setData(summary);
@@ -31,11 +34,13 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [scope]);
+  }, [scope, authLoading]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!authLoading) {
+      loadData();
+    }
+  }, [loadData, authLoading, user]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -161,21 +166,9 @@ export default function DashboardScreen() {
           >
             <View style={styles.txIconContainer}>
               <Ionicons
-                name={
-                  tx.type === 'income'
-                    ? 'arrow-down'
-                    : tx.type === 'expense'
-                    ? 'arrow-up'
-                    : 'swap-horizontal'
-                }
+                name={tx.type === 'income' ? 'arrow-down' : 'arrow-up'}
                 size={20}
-                color={
-                  tx.type === 'income'
-                    ? theme.income
-                    : tx.type === 'expense'
-                    ? theme.expense
-                    : theme.transfer
-                }
+                color={tx.type === 'income' ? theme.income : theme.expense}
               />
             </View>
             <View style={styles.txDetails}>
@@ -190,12 +183,7 @@ export default function DashboardScreen() {
               style={[
                 styles.txAmount,
                 {
-                  color:
-                    tx.type === 'income'
-                      ? theme.income
-                      : tx.type === 'expense'
-                      ? theme.expense
-                      : theme.transfer,
+                  color: tx.type === 'income' ? theme.income : theme.expense,
                 },
               ]}
             >

@@ -85,31 +85,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Telas secundárias - acessíveis pela tela de Perfil */}
-      <Tabs.Screen
-        name="reports"
-        options={{
-          title: 'Relatórios',
-          headerTitle: 'Relatórios Mensais',
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="goals"
-        options={{
-          title: 'Metas',
-          headerTitle: 'Metas Financeiras',
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="budget"
-        options={{
-          title: 'Orçamento',
-          headerTitle: 'Orçamento Mensal',
-          tabBarStyle: { display: 'none' },
-        }}
-      />
     </Tabs>
   );
 }

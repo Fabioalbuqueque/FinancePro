@@ -27,10 +27,10 @@ export class CreateTransactionDto {
   @IsEnum(['income', 'expense'])
   type: 'income' | 'expense';
 
-  @ApiProperty({ description: 'ID da conta financeira' })
+  @ApiPropertyOptional({ description: 'ID da conta financeira (opcional)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  accountId: string;
+  accountId?: string;
 
   @ApiPropertyOptional({ description: 'ID da categoria' })
   @IsOptional()
@@ -51,7 +51,8 @@ export class CreateTransactionDto {
   @IsEnum(['user', 'family'])
   ownerType?: 'user' | 'family';
 
-  @ApiProperty({ description: 'Data da movimentação em ISO 8601', example: '2026-11-13' })
+  @ApiPropertyOptional({ description: 'Data da movimentação em ISO 8601 (opcional, padrão: data atual)', example: '2026-11-13' })
+  @IsOptional()
   @IsDateString()
-  date: string;
+  date?: string;
 }

@@ -179,6 +179,22 @@ class ApiService {
     return await this.request('POST', '/families/invitations', { email, role });
   }
 
+  async updateFamily(id: string, name: string) {
+    return await this.request('PATCH', `/families/${id}`, { name });
+  }
+
+  async leaveFamily(familyId: string) {
+    return await this.request('POST', '/families/leave', { familyId });
+  }
+
+  async deleteFamily(id: string) {
+    return await this.request('DELETE', `/families/${id}`);
+  }
+
+  async removeFamilyMember(memberId: string) {
+    return await this.request('DELETE', `/families/members/${memberId}`);
+  }
+
   // Relatórios
   async getMonthlyReport(month: number, year: number) {
     return await this.request(

@@ -27,6 +27,8 @@ export default function FamilyScreen() {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [whatsappModalVisible, setWhatsappModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
 
   const theme = useThemeColors();
@@ -38,6 +40,8 @@ export default function FamilyScreen() {
       if (current) {
         const mems = await api.getFamilyMembers();
         setMembers(mems || []);
+      } else {
+        setMembers([]);
       }
     } catch (err) {
       console.log('Erro ao carregar família', err);
@@ -88,6 +92,99 @@ export default function FamilyScreen() {
     }
   };
 
+  const openEditModal = () => {
+    setEditName(familyData?.family?.name || '');
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateFamily = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Atenção', 'Informe um novo nome para a família.');
+      return;
+    }
+    try {
+      setSaving(true);
+      await api.updateFamily((familyData?.family as any)._id, editName.trim());
+      setEditModalVisible(false);
+      loadFamily();
+      Alert.alert('Sucesso', 'Nome da família atualizado!');
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Falha ao atualizar família.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLeaveFamily = () => {
+    Alert.alert(
+      'Sair da família',
+      'Você terá certeza de que deseja sair do grupo familiar? Perderá o acesso às contas compartilhadas.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.leaveFamily((familyData?.family as any)._id);
+              loadFamily();
+              Alert.alert('Sucesso', 'Você saiu da família com sucesso.');
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao sair da família.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteFamily = () => {
+    Alert.alert(
+      'Excluir família',
+      `Isso excluirá o grupo "${familyData?.family?.name}" permanentemente. Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteFamily((familyData?.family as any)._id);
+              loadFamily();
+              Alert.alert('Sucesso', 'Família excluída com sucesso.');
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao excluir família.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveMember = (m: any) => {
+    Alert.alert(
+      'Remover membro',
+      `Remover "${m.userId?.name || 'membro'}" da família?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.removeFamilyMember(m._id);
+              loadFamily();
+              Alert.alert('Sucesso', 'Membro removido.');
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao remover membro.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Abre o WhatsApp pedindo para o usuário escolher o contato
   const familyNameStr = familyData?.family?.name || 'FinancePro';
   const appDownloadUrl = 'https://financepro-six-chi.vercel.app/';
   const previewMessage = `Olá! Você foi convidado para participar do grupo "${familyNameStr}" no FinancePro.
@@ -97,7 +194,6 @@ Se ainda não tem o app, acesse aqui:
 
 Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
 
-  // Abre o WhatsApp pedindo para o usuário escolher o contato
   const handleSendWhatsApp = async () => {
     const encodedMessage = encodeURIComponent(previewMessage);
     const url =
@@ -133,6 +229,9 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
     );
   }
 
+  const isAdmin = familyData?.role === 'admin';
+  const familyId = (familyData?.family as any)?._id;
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -153,7 +252,8 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
           <Text style={[styles.emptySub, { color: theme.textMuted }]}>
             Compartilhe despesas, contas conjuntas e metas financeiras com quem você
             ama. Comece agora!
-          </Text>          <TouchableOpacity
+          </Text>
+          <TouchableOpacity
             style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
             onPress={() => setCreateModalVisible(true)}
             activeOpacity={0.85}
@@ -175,9 +275,7 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
                   {familyNameStr}
                 </Text>
                 <Text style={[styles.familyCardRole, { color: theme.textMuted }]}>
-                  {familyData.role === 'admin'
-                    ? 'Você é o Administrador 👑'
-                    : 'Você é Membro do grupo'}
+                  {isAdmin ? 'Você é o Administrador 👑' : 'Você é Membro do grupo'}
                 </Text>
               </View>
             </View>
@@ -194,7 +292,7 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
               <View style={[styles.familyStatDivider, { backgroundColor: theme.border }]} />
               <View style={styles.familyStat}>
                 <Text style={[styles.familyStatValue, { color: theme.text }]}>
-                  {familyData.role === 'admin' ? 'Admin' : 'Membro'}
+                  {isAdmin ? 'Admin' : 'Membro'}
                 </Text>
                 <Text style={[styles.familyStatLabel, { color: theme.textMuted }]}>
                   Seu papel
@@ -211,26 +309,54 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
               </View>
             </View>
 
-            {familyData.role === 'admin' && (
-              <View style={styles.inviteButtonsRow}>
+            {/* Botões de ação */}
+            <View style={styles.actionButtonsRow}>
+              {isAdmin ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: theme.primary }]}
+                    onPress={() => setInviteModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="mail-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Convidar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: '#25D366' }]}
+                    onPress={() => setWhatsappModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>WhatsApp</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: '#3B82F6' }]}
+                    onPress={openEditModal}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: '#EF4444' }]}
+                    onPress={handleDeleteFamily}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Excluir</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
                 <TouchableOpacity
-                  style={[styles.inviteBtn, { backgroundColor: theme.primary }]}
-                  onPress={() => setInviteModalVisible(true)}
+                  style={[styles.actionBtn, { backgroundColor: '#EF4444', flex: 1 }]}
+                  onPress={handleLeaveFamily}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="mail-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.inviteBtnText}>E-mail</Text>
+                  <Ionicons name="log-out-outline" size={14} color="#FFFFFF" />
+                  <Text style={styles.actionBtnText}>Sair da Família</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.inviteBtn, { backgroundColor: '#25D366' }]}
-                  onPress={() => setWhatsappModalVisible(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.inviteBtnText}>WhatsApp</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              )}
+            </View>
           </View>
 
           {/* ============ LISTA DE MEMBROS ============ */}
@@ -247,7 +373,8 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
           </View>
 
           {members.map((m, idx) => {
-            const isAdmin = m.role === 'admin';
+            const memberIsAdmin = m.role === 'admin';
+            const isSelf = m.userId?._id === (familyData as any)?.userId?._id || m.role === 'admin' && m.userId?._id === null;
             const avatarColors = [
               { bg: '#DCFCE7', fg: '#166534' },
               { bg: '#DBEAFE', fg: '#1E40AF' },
@@ -276,59 +403,70 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
                 <View
                   style={[
                     styles.roleBadge,
-                    { backgroundColor: isAdmin ? '#FEF3C7' : '#E0E7FF' },
+                    { backgroundColor: memberIsAdmin ? '#FEF3C7' : '#E0E7FF' },
                   ]}
                 >
                   <Ionicons
-                    name={isAdmin ? 'star-outline' : 'person-outline'}
+                    name={memberIsAdmin ? 'star-outline' : 'person-outline'}
                     size={11}
-                    color={isAdmin ? '#B45309' : '#3730A3'}
+                    color={memberIsAdmin ? '#B45309' : '#3730A3'}
                   />
                   <Text
                     style={[
                       styles.roleBadgeText,
-                      { color: isAdmin ? '#B45309' : '#3730A3' },
+                      { color: memberIsAdmin ? '#B45309' : '#3730A3' },
                     ]}
                   >
-                    {isAdmin ? 'Admin' : 'Membro'}
+                    {memberIsAdmin ? 'Admin' : 'Membro'}
                   </Text>
                 </View>
+                {isAdmin && !memberIsAdmin && (
+                  <TouchableOpacity
+                    style={[styles.removeMemberBtn]}
+                    onPress={() => handleRemoveMember(m)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
 
           {/* ============ COMO CONVIDAR ============ */}
-          <View style={[styles.helpCard, { backgroundColor: theme.card }]}>
-            <Text style={[styles.helpTitle, { color: theme.text }]}>
-              Como convidar
-            </Text>
-            <View style={styles.helpItem}>
-              <View style={[styles.helpIcon, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="mail-outline" size={18} color={theme.primary} />
+          {isAdmin && (
+            <View style={[styles.helpCard, { backgroundColor: theme.card }]}>
+              <Text style={[styles.helpTitle, { color: theme.text }]}>
+                Como convidar
+              </Text>
+              <View style={styles.helpItem}>
+                <View style={[styles.helpIcon, { backgroundColor: '#DCFCE7' }]}>
+                  <Ionicons name="mail-outline" size={18} color={theme.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.helpItemTitle, { color: theme.text }]}>
+                    E-mail direto
+                  </Text>
+                  <Text style={[styles.helpItemSub, { color: theme.textMuted }]}>
+                    Adiciona quem já tem cadastro no FinancePro.
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.helpItemTitle, { color: theme.text }]}>
-                  E-mail direto
-                </Text>
-                <Text style={[styles.helpItemSub, { color: theme.textMuted }]}>
-                  Adiciona quem já tem cadastro no FinancePro.
-                </Text>
+              <View style={styles.helpItem}>
+                <View style={[styles.helpIcon, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color="#25D366" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.helpItemTitle, { color: theme.text }]}>
+                    WhatsApp
+                  </Text>
+                  <Text style={[styles.helpItemSub, { color: theme.textMuted }]}>
+                    Envie o convite por mensagem para quem ainda não usa o app.
+                  </Text>
+                </View>
               </View>
             </View>
-            <View style={styles.helpItem}>
-              <View style={[styles.helpIcon, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#25D366" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.helpItemTitle, { color: theme.text }]}>
-                  WhatsApp
-                </Text>
-                <Text style={[styles.helpItemSub, { color: theme.textMuted }]}>
-                  Envie o convite por mensagem para quem ainda não usa o app.
-                </Text>
-              </View>
-            </View>
-          </View>
+          )}
         </>
       )}
 
@@ -366,6 +504,47 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
                 <>
                   <Ionicons name="add-circle-outline" size={16} color="#FFFFFF" />
                   <Text style={styles.primaryBtnText}>Criar Grupo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============ MODAL EDITAR FAMÍLIA ============ */}
+      <Modal visible={editModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Editar Nome da Família
+              </Text>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={[styles.modalClose, { backgroundColor: theme.background }]}
+              >
+                <Ionicons name="close" size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+              placeholder="Ex: Família Almeida"
+              value={editName}
+              onChangeText={setEditName}
+              maxLength={40}
+            />
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: theme.primary, marginTop: 20 }]}
+              onPress={handleUpdateFamily}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.primaryBtnText}>Salvar</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -478,7 +657,7 @@ Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
             </View>
 
             <TouchableOpacity
-              style={[styles.waSendBtn]}
+              style={styles.waSendBtn}
               onPress={handleSendWhatsApp}
               activeOpacity={0.85}
             >
@@ -569,18 +748,23 @@ const styles = StyleSheet.create({
   familyStatLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   familyStatDivider: { width: 1, marginHorizontal: 8, alignSelf: 'stretch' },
 
-  /* Botões de convite */
-  inviteButtonsRow: { flexDirection: 'row', gap: 8 },
-  inviteBtn: {
+  /* Botões de ação */
+  actionButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  actionBtn: {
     flex: 1,
+    minWidth: 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 10,
   },
-  inviteBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  actionBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
 
   /* Seção de membros */
   sectionRow: {
@@ -633,6 +817,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   roleBadgeText: { fontSize: 11, fontWeight: '700' },
+  removeMemberBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
 
   /* Card de ajuda */
   helpCard: {

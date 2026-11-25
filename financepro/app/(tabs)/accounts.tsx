@@ -53,7 +53,6 @@ const ACCOUNT_STYLE: Record<
 
 export default function AccountsScreen() {
   const router = useRouter();
-  const [personalAccounts, setPersonalAccounts] = useState<any[]>([]);
   const [familyAccounts, setFamilyAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,7 +62,6 @@ export default function AccountsScreen() {
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('checking');
   const [initialBalance, setInitialBalance] = useState('');
-  const [ownerType, setOwnerType] = useState<'user' | 'family'>('user');
   const [saving, setSaving] = useState(false);
 
   const theme = useThemeColors();
@@ -74,7 +72,6 @@ export default function AccountsScreen() {
   const loadAccounts = useCallback(async () => {
     try {
       const res = await api.getAccounts();
-      setPersonalAccounts(res.personal || []);
       setFamilyAccounts(res.family || []);
     } catch (err) {
       console.log('Erro ao carregar contas', err);
@@ -94,9 +91,9 @@ export default function AccountsScreen() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [enterAnim, personalAccounts.length, familyAccounts.length]);
+  }, [enterAnim, familyAccounts.length]);
 
-  const totalBalance = [...personalAccounts, ...familyAccounts].reduce(
+  const totalBalance = familyAccounts.reduce(
     (sum, acc) => sum + (acc.initialBalanceCents || 0),
     0
   );
@@ -113,22 +110,19 @@ export default function AccountsScreen() {
       setSaving(true);
 
       if (editingId) {
-        // Modo edição
         await api.updateAccount(editingId, {
           name: name.trim(),
           type,
           initialBalanceCents,
         });
       } else {
-        // Modo criação
         await api.createAccount({
           name: name.trim(),
           type,
           initialBalanceCents,
-          ownerType,
+          ownerType: 'family',
         });
 
-        // Agendar notificação de relatório mensal apenas na criação
         const perm = await notificationService.requestPermission();
         if (perm) {
           await notificationService.scheduleMonthlyReport();
@@ -144,14 +138,12 @@ export default function AccountsScreen() {
         'Sucesso',
         editingId
           ? 'Conta atualizada com sucesso!'
-          : ownerType === 'family'
-            ? 'Conta familiar cadastrada com sucesso!'
-            : 'Conta cadastrada com sucesso!'
+          : 'Conta familiar cadastrada com sucesso!'
       );
     } catch (err: any) {
       console.error('Erro ao salvar conta:', err);
       const errorMessage = err.message || 'Falha ao salvar conta.';
-      if (ownerType === 'family' && errorMessage.includes('família')) {
+      if (errorMessage.includes('família') || errorMessage.includes('família ativa')) {
         Alert.alert(
           'Nenhuma família ativa',
           'Para criar uma conta familiar, você precisa primeiro criar um grupo familiar.',
@@ -194,8 +186,7 @@ export default function AccountsScreen() {
     );
   };
 
-  const openCreateModal = (owner: 'user' | 'family') => {
-    setOwnerType(owner);
+  const openCreateModal = () => {
     setEditingId(null);
     setName('');
     setInitialBalance('');
@@ -203,8 +194,7 @@ export default function AccountsScreen() {
     setModalVisible(true);
   };
 
-  const openEditModal = (acc: any, owner: 'user' | 'family') => {
-    setOwnerType(owner);
+  const openEditModal = (acc: any) => {
     setEditingId(acc._id);
     setName(acc.name || '');
     setInitialBalance(
@@ -216,7 +206,7 @@ export default function AccountsScreen() {
     setModalVisible(true);
   };
 
-  const renderAccountCard = (acc: any, owner: 'user' | 'family') => {
+  const renderAccountCard = (acc: any) => {
     const accStyle =
       ACCOUNT_STYLE[(acc.type as AccountType) || 'checking'] || ACCOUNT_STYLE.checking;
     const isPositive = (acc.initialBalanceCents || 0) >= 0;
@@ -252,7 +242,7 @@ export default function AccountsScreen() {
           <View style={styles.cardActions}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
-              onPress={() => openEditModal(acc, owner)}
+              onPress={() => openEditModal(acc)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="create-outline" size={16} color={theme.textMuted} />
@@ -291,50 +281,32 @@ export default function AccountsScreen() {
     );
   };
 
-  const renderEmptyState = (owner: 'user' | 'family') => {
-    const isFamily = owner === 'family';
+  const renderEmptyState = () => {
     return (
       <TouchableOpacity
         style={[
           styles.emptyCard,
           { backgroundColor: theme.card, borderColor: theme.border },
         ]}
-        onPress={() => openCreateModal(owner)}
+        onPress={openCreateModal}
         activeOpacity={0.7}
       >
-        <View
-          style={[
-            styles.emptyIcon,
-            { backgroundColor: isFamily ? '#DBEAFE' : '#DCFCE7' },
-          ]}
-        >
-          <Ionicons
-            name={isFamily ? 'people-outline' : 'add-circle-outline'}
-            size={24}
-            color={isFamily ? '#3B82F6' : theme.primary}
-          />
+        <View style={[styles.emptyIcon, { backgroundColor: '#DBEAFE' }]}>
+          <Ionicons name="people-outline" size={24} color="#3B82F6" />
         </View>
-        <Text style={[styles.emptyTitle, { color: theme.text }]} numberOfLines={1}>
-          {isFamily ? 'Crie uma conta compartilhada' : 'Adicione sua primeira conta'}
+        <Text style={[styles.emptyTitle, { color: theme.text }]}>
+          Crie uma conta compartilhada
         </Text>
         <Text style={[styles.emptySub, { color: theme.textMuted }]}>
-          {isFamily
-            ? 'A conta fica visível para todos os participantes do grupo familiar.'
-            : 'Contas como carteira, banco ou dinheiro em espécie.'}
+          A conta fica visível para todos os participantes do grupo familiar.
         </Text>
-        <View
-          style={[styles.emptyCta, { backgroundColor: isFamily ? '#3B82F6' : theme.primary }]}
-        >
+        <View style={[styles.emptyCta, { backgroundColor: '#3B82F6' }]}>
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.emptyCtaText}>
-            {isFamily ? 'Nova Conta Familiar' : 'Nova Conta'}
-          </Text>
+          <Text style={styles.emptyCtaText}>Nova Conta Familiar</Text>
         </View>
       </TouchableOpacity>
     );
   };
-
-  const totalAccounts = personalAccounts.length + familyAccounts.length;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -346,12 +318,12 @@ export default function AccountsScreen() {
         <View style={[styles.summaryCard, { backgroundColor: theme.card }]}>
           <View style={styles.summaryTop}>
             <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
-              Saldo Total
+              Saldo Familiar
             </Text>
             <View style={styles.summaryBadge}>
-              <Ionicons name="pie-chart-outline" size={14} color={theme.primary} />
-              <Text style={[styles.summaryBadgeText, { color: theme.primary }]}>
-                {totalAccounts} {totalAccounts === 1 ? 'conta' : 'contas'}
+              <Ionicons name="pie-chart-outline" size={14} color="#3B82F6" />
+              <Text style={[styles.summaryBadgeText, { color: '#3B82F6' }]}>
+                {familyAccounts.length} {familyAccounts.length === 1 ? 'conta' : 'contas'}
               </Text>
             </View>
           </View>
@@ -359,55 +331,12 @@ export default function AccountsScreen() {
             {formatCurrency(totalBalance)}
           </Text>
           <Text style={[styles.summarySub, { color: theme.textMuted }]}>
-            Somado de todas as suas contas
+            Somado de todas as contas compartilhadas
           </Text>
-          <View style={[styles.summaryDivider, { backgroundColor: theme.border }]} />
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryMetric}>
-              <Ionicons name="person-outline" size={16} color={theme.primary} />
-              <Text style={[styles.metricValue, { color: theme.text }]}>
-                {personalAccounts.length}
-              </Text>
-              <Text style={[styles.metricLabel, { color: theme.textMuted }]}>
-                Individuais
-              </Text>
-            </View>
-            <View style={[styles.summaryDividerV, { backgroundColor: theme.border }]} />
-            <View style={styles.summaryMetric}>
-              <Ionicons name="people-outline" size={16} color="#3B82F6" />
-              <Text style={[styles.metricValue, { color: theme.text }]}>
-                {familyAccounts.length}
-              </Text>
-              <Text style={[styles.metricLabel, { color: theme.textMuted }]}>
-                Familiares
-              </Text>
-            </View>
-          </View>
         </View>
-
-        {/* Seção Individual */}
-        <View style={styles.sectionRow}>
-          <View style={styles.sectionTitleWrap}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Minhas Contas
-            </Text>
-            <View style={styles.sectionDotRow}>
-              <View style={[styles.sectionDot, { backgroundColor: theme.primary }]} />
-              <Text style={[styles.sectionCount, { color: theme.textMuted }]}>
-                {personalAccounts.length}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {personalAccounts.length === 0 ? (
-          renderEmptyState('user')
-        ) : (
-          personalAccounts.map((acc) => renderAccountCard(acc, 'user'))
-        )}
 
         {/* Seção Familiar */}
-        <View style={[styles.sectionRow, { marginTop: 24 }]}>
+        <View style={styles.sectionRow}>
           <View style={styles.sectionTitleWrap}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Contas Compartilhadas
@@ -422,22 +351,22 @@ export default function AccountsScreen() {
         </View>
 
         {familyAccounts.length === 0 ? (
-          renderEmptyState('family')
+          renderEmptyState()
         ) : (
-          familyAccounts.map((acc) => renderAccountCard(acc, 'family'))
+          familyAccounts.map((acc) => renderAccountCard(acc))
         )}
       </ScrollView>
 
       {/* Botão Flutuante */}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-        onPress={() => openCreateModal('user')}
+        style={[styles.fab, { backgroundColor: '#3B82F6' }]}
+        onPress={openCreateModal}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Modal Nova Conta */}
+      {/* Modal Nova/Editar Conta */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
@@ -445,12 +374,10 @@ export default function AccountsScreen() {
               <View>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   {editingId
-                    ? 'Editar Conta'
-                    : ownerType === 'family'
-                      ? 'Nova Conta Familiar'
-                      : 'Nova Conta Individual'}
+                    ? 'Editar Conta Familiar'
+                    : 'Nova Conta Familiar'}
                 </Text>
-                {!editingId && ownerType === 'family' && (
+                {!editingId && (
                   <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
                     Compartilhada com seu grupo familiar
                   </Text>
@@ -515,7 +442,7 @@ export default function AccountsScreen() {
             <Text style={[styles.inputLabel, { color: theme.text }]}>Nome da Conta</Text>
             <TextInput
               style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-              placeholder="Ex: Nubank, Itaú, Carteira"
+              placeholder="Ex: Reserva Familiar, Conta Conjunta"
               value={name}
               onChangeText={setName}
               maxLength={40}
@@ -531,7 +458,7 @@ export default function AccountsScreen() {
             />
 
             <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: theme.primary }]}
+              style={[styles.submitBtn, { backgroundColor: '#3B82F6' }]}
               onPress={handleCreateAccount}
               disabled={saving}
               activeOpacity={0.85}
@@ -584,7 +511,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#EFF6FF',
   },
   summaryBadgeText: { fontSize: 12, fontWeight: '700' },
   summaryValue: {
@@ -594,20 +521,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   summarySub: { fontSize: 12, marginTop: 2 },
-  summaryDivider: {
-    height: 1,
-    marginTop: 16,
-    marginBottom: 14,
-  },
-  summaryRow: { flexDirection: 'row' },
-  summaryMetric: { flex: 1, alignItems: 'center', gap: 2 },
-  metricValue: { fontSize: 18, fontWeight: '800' },
-  metricLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryDividerV: {
-    width: 1,
-    marginHorizontal: 12,
-    alignSelf: 'stretch',
-  },
 
   sectionRow: {
     flexDirection: 'row',
@@ -721,7 +634,7 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#059669',
+    shadowColor: '#3B82F6',
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
@@ -806,7 +719,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 24,
     marginBottom: 16,
-    shadowColor: '#059669',
+    shadowColor: '#3B82F6',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

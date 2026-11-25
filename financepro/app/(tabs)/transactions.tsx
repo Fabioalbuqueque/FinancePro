@@ -25,6 +25,7 @@ export default function TransactionsScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('');
+  const [scope, setScope] = useState<'user' | 'family'>('user');
 
   // Modal de Nova Transação (Apenas Receita ou Despesa)
   const [modalVisible, setModalVisible] = useState(false);
@@ -38,7 +39,7 @@ export default function TransactionsScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const params: any = {};
+      const params: any = { scope };
       if (filterType) params.type = filterType;
 
       const [txRes, catRes]: [any, any] = await Promise.all([
@@ -65,7 +66,7 @@ export default function TransactionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [filterType, type]);
+  }, [filterType, type, scope]);
 
   useEffect(() => {
     loadData();
@@ -108,16 +109,35 @@ export default function TransactionsScreen() {
         categoryId: selectedCategory || undefined,
         status: 'paid',
         date: new Date().toISOString(),
+        ownerType: scope,
       });
 
       setModalVisible(false);
       setDescription('');
       setAmountInput('');
       await loadData();
-      Alert.alert('Sucesso', `${type === 'income' ? 'Receita' : 'Despesa'} salva com sucesso!`);
+      Alert.alert(
+        'Sucesso',
+        `${type === 'income' ? 'Receita' : 'Despesa'} salva com sucesso na conta ${scope === 'user' ? 'individual' : 'familiar'}!`
+      );
     } catch (err: any) {
       console.error('Erro ao salvar movimentação:', err);
-      Alert.alert('Erro', err.message || 'Falha ao salvar lançamento.');
+      const errorMessage = err.message || 'Falha ao salvar lançamento.';
+      if (scope === 'family' && errorMessage.includes('família')) {
+        Alert.alert(
+          'Nenhuma família ativa',
+          'Para registrar uma movimentação familiar, você precisa primeiro criar um grupo familiar.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Ir para Família',
+              onPress: () => router.push('/(tabs)/family'),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erro', errorMessage);
+      }
     } finally {
       setSaving(false);
     }
@@ -143,6 +163,55 @@ export default function TransactionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Filtros de Escopo (Individual/Família) */}
+      <View style={styles.scopeBar}>
+        <TouchableOpacity
+          style={[
+            styles.scopeBtn,
+            { backgroundColor: scope === 'user' ? theme.primary : theme.card },
+            { borderColor: theme.border },
+          ]}
+          onPress={() => setScope('user')}
+        >
+          <Ionicons
+            name="person-outline"
+            size={16}
+            color={scope === 'user' ? '#FFFFFF' : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.scopeBtnText,
+              { color: scope === 'user' ? '#FFFFFF' : theme.textMuted },
+            ]}
+          >
+            Individual
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.scopeBtn,
+            { backgroundColor: scope === 'family' ? '#3B82F6' : theme.card },
+            { borderColor: theme.border },
+          ]}
+          onPress={() => setScope('family')}
+        >
+          <Ionicons
+            name="people-outline"
+            size={16}
+            color={scope === 'family' ? '#FFFFFF' : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.scopeBtnText,
+              { color: scope === 'family' ? '#FFFFFF' : theme.textMuted },
+            ]}
+          >
+            Família
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Filtros de Tipo */}
       <View style={styles.filterBar}>
         {[
@@ -200,8 +269,38 @@ export default function TransactionsScreen() {
                   <Text style={[styles.desc, { color: theme.text }]} numberOfLines={1}>
                     {item.description}
                   </Text>
-                  <Text style={[styles.sub, { color: theme.textMuted }]}>
-                    {item.categoryId?.name || (item.type === 'income' ? 'Receita' : 'Despesa')} • {formatDate(item.date)}
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.sub, { color: theme.textMuted }]}>
+                      {item.categoryId?.name || (item.type === 'income' ? 'Receita' : 'Despesa')}
+                    </Text>
+                    <View
+                      style={[
+                        styles.scopeBadge,
+                        {
+                          backgroundColor:
+                            item.ownerType === 'family' ? '#DBEAFE' : '#DCFCE7',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.ownerType === 'family' ? 'people-outline' : 'person-outline'}
+                        size={10}
+                        color={item.ownerType === 'family' ? '#3B82F6' : theme.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.scopeBadgeText,
+                          {
+                            color: item.ownerType === 'family' ? '#3B82F6' : theme.primary,
+                          },
+                        ]}
+                      >
+                        {item.ownerType === 'family' ? 'Família' : 'Individual'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.date, { color: theme.textMuted }]}>
+                    {formatDate(item.date)}
                   </Text>
                 </View>
               </View>
@@ -424,6 +523,23 @@ export default function TransactionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  scopeBar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  scopeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  scopeBtnText: { fontSize: 13, fontWeight: '700' },
   filterBar: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   filterChip: {
     paddingHorizontal: 12,
@@ -449,7 +565,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   desc: { fontSize: 15, fontWeight: '600' },
-  sub: { fontSize: 12, marginTop: 2 },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  sub: { fontSize: 12, flex: 1 },
+  scopeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  scopeBadgeText: { fontSize: 10, fontWeight: '700' },
+  date: { fontSize: 11, marginTop: 3 },
   cardRight: { alignItems: 'flex-end', gap: 6 },
   amount: { fontSize: 15, fontWeight: '700' },
   deleteBtn: { padding: 4 },

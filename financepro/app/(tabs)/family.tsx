@@ -88,12 +88,18 @@ export default function FamilyScreen() {
     }
   };
 
+  const familyNameStr = familyData?.family?.name || 'FinancePro';
+  const appDownloadUrl = 'https://play.google.com/store/apps/details?id=com.anonymous.financepro';
+  const previewMessage = `Olá! Você foi convidado para participar do grupo "${familyNameStr}" no FinancePro.
+
+Se ainda não tem o app, baixe aqui:
+📱 ${appDownloadUrl}
+
+Aceite o convite e comece a planejar as finanças em conjunto! 💚`;
+
   // Abre o WhatsApp pedindo para o usuário escolher o contato
   const handleSendWhatsApp = async () => {
-    const familyNameStr = familyData?.family?.name || 'FinancePro';
-    const message = `Olá! Você foi convidado para participar do grupo "${familyNameStr}" no FinancePro. Aceite o convite no app e comece a planejar as finanças em conjunto! 💚`;
-
-    const encodedMessage = encodeURIComponent(message);
+    const encodedMessage = encodeURIComponent(previewMessage);
     const url =
       Platform.OS === 'ios'
         ? `whatsapp://wa.me/?text=${encodedMessage}`
@@ -127,8 +133,6 @@ export default function FamilyScreen() {
     );
   }
 
-  const familyNameStr = familyData?.family?.name || 'FinancePro';
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -149,8 +153,7 @@ export default function FamilyScreen() {
           <Text style={[styles.emptySub, { color: theme.textMuted }]}>
             Compartilhe despesas, contas conjuntas e metas financeiras com quem você
             ama. Comece agora!
-          </Text>
-          <TouchableOpacity
+          </Text>          <TouchableOpacity
             style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
             onPress={() => setCreateModalVisible(true)}
             activeOpacity={0.85}
@@ -444,11 +447,7 @@ export default function FamilyScreen() {
               <Text style={[styles.waPreviewLabel, { color: theme.textMuted }]}>
                 Mensagem que será enviada
               </Text>
-              <Text style={[styles.waPreviewText, { color: theme.text }]}>
-                Olá! Você foi convidado para participar do grupo "{familyNameStr}" no
-                FinancePro. Aceite o convite no app e comece a planejar as finanças em
-                conjunto! 💚
-              </Text>
+              <Text style={[styles.waPreviewText, { color: theme.text }]}>{previewMessage}</Text>
             </View>
 
             <View style={styles.waSteps}>

@@ -55,6 +55,7 @@ export default function AccountsScreen() {
   const router = useRouter();
   const [familyAccounts, setFamilyAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasFamily, setHasFamily] = useState(false);
 
   // Modal nova/editar conta
   const [modalVisible, setModalVisible] = useState(false);
@@ -71,8 +72,12 @@ export default function AccountsScreen() {
 
   const loadAccounts = useCallback(async () => {
     try {
-      const res = await api.getAccounts();
+      const [res, familyRes] = await Promise.all([
+        api.getAccounts(),
+        api.getCurrentFamily(),
+      ]);
       setFamilyAccounts(res.family || []);
+      setHasFamily(!!familyRes);
     } catch (err) {
       console.log('Erro ao carregar contas', err);
     } finally {
@@ -282,6 +287,36 @@ export default function AccountsScreen() {
   };
 
   const renderEmptyState = () => {
+    if (!hasFamily) {
+      return (
+        <View
+          style={[
+            styles.emptyCard,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <View style={[styles.emptyIcon, { backgroundColor: '#FEF3C7' }]}>
+            <Ionicons name="warning-outline" size={24} color="#D97706" />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>
+            Você não tem família ativa
+          </Text>
+          <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+            Para ver e gerenciar contas compartilhadas, crie ou entre em um grupo
+            familiar primeiro.
+          </Text>
+          <TouchableOpacity
+            style={[styles.emptyCta, { backgroundColor: '#3B82F6' }]}
+            onPress={() => router.push('/(tabs)/family')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="people-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.emptyCtaText}>Ir para Família</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <TouchableOpacity
         style={[
@@ -314,26 +349,28 @@ export default function AccountsScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Card de Resumo — Saldo Total */}
-        <View style={[styles.summaryCard, { backgroundColor: theme.card }]}>
-          <View style={styles.summaryTop}>
-            <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
-              Saldo Familiar
-            </Text>
-            <View style={styles.summaryBadge}>
-              <Ionicons name="pie-chart-outline" size={14} color="#3B82F6" />
-              <Text style={[styles.summaryBadgeText, { color: '#3B82F6' }]}>
-                {familyAccounts.length} {familyAccounts.length === 1 ? 'conta' : 'contas'}
+        {hasFamily && (
+          /* Card de Resumo — Saldo Total */
+          <View style={[styles.summaryCard, { backgroundColor: theme.card }]}>
+            <View style={styles.summaryTop}>
+              <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
+                Saldo Familiar
               </Text>
+              <View style={styles.summaryBadge}>
+                <Ionicons name="pie-chart-outline" size={14} color="#3B82F6" />
+                <Text style={[styles.summaryBadgeText, { color: '#3B82F6' }]}>
+                  {familyAccounts.length} {familyAccounts.length === 1 ? 'conta' : 'contas'}
+                </Text>
+              </View>
             </View>
+            <Text style={[styles.summaryValue, { color: theme.text }]}>
+              {formatCurrency(totalBalance)}
+            </Text>
+            <Text style={[styles.summarySub, { color: theme.textMuted }]}>
+              Somado de todas as contas compartilhadas
+            </Text>
           </View>
-          <Text style={[styles.summaryValue, { color: theme.text }]}>
-            {formatCurrency(totalBalance)}
-          </Text>
-          <Text style={[styles.summarySub, { color: theme.textMuted }]}>
-            Somado de todas as contas compartilhadas
-          </Text>
-        </View>
+        )}
 
         {/* Seção Familiar */}
         <View style={styles.sectionRow}>
@@ -358,13 +395,15 @@ export default function AccountsScreen() {
       </ScrollView>
 
       {/* Botão Flutuante */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: '#3B82F6' }]}
-        onPress={openCreateModal}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      {hasFamily && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: '#3B82F6' }]}
+          onPress={openCreateModal}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
       {/* Modal Nova/Editar Conta */}
       <Modal visible={modalVisible} animationType="slide" transparent>

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -11,6 +12,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FamiliesService } from './families.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateFamilyDto } from './dto/update-family.dto';
 import { UsersService } from '../users/users.service';
 import { FirebaseAuthGuard, AuthenticatedUser } from '../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -67,5 +69,36 @@ export class FamiliesController {
   ) {
     const user = await this.usersService.getOrCreateUser(authUser);
     return this.familiesService.removeMember(user._id, memberId);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Renomear o grupo familiar (Apenas Admin)' })
+  async updateFamily(
+    @CurrentUser() authUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateFamilyDto,
+  ) {
+    const user = await this.usersService.getOrCreateUser(authUser);
+    return this.familiesService.updateFamily(id, user._id, dto);
+  }
+
+  @Post('leave')
+  @ApiOperation({ summary: 'Sair da família atual (membros não admin)' })
+  async leaveFamily(
+    @CurrentUser() authUser: AuthenticatedUser,
+    @Body('familyId') familyId: string,
+  ) {
+    const user = await this.usersService.getOrCreateUser(authUser);
+    return this.familiesService.leaveFamily(user._id, familyId);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Excluir a família (Apenas Admin proprietário)' })
+  async deleteFamily(
+    @CurrentUser() authUser: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    const user = await this.usersService.getOrCreateUser(authUser);
+    return this.familiesService.deleteFamily(id, user._id);
   }
 }

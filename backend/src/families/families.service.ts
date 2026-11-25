@@ -12,6 +12,7 @@ import { Invitation, InvitationDocument } from './schemas/invitation.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateFamilyDto } from './dto/update-family.dto';
 
 @Injectable()
 export class FamiliesService {
@@ -135,5 +136,92 @@ export class FamiliesService {
     await member.save();
 
     return { message: 'Participante removido com sucesso' };
+  }
+
+  async updateFamily(familyId: string, userId: Types.ObjectId, dto: UpdateFamilyDto) {
+    const current = await this.getCurrentFamily(userId);
+    if (!current) {
+      throw new NotFoundException('Você não pertence a nenhuma família ativa');
+    }
+
+    if (current.role !== 'admin') {
+      throw new ForbiddenException('Apenas administradores podem editar a família');
+    }
+
+    if ((current.family as any)._id.toString() !== familyId) {
+      throw new ForbiddenException('Você não tem permissão para editar esta família');
+    }
+
+    const family = await this.familyModel.findById(familyId);
+    if (!family) {
+      throw new NotFoundException('Família não encontrada');
+    }
+
+    if (dto.name !== undefined && dto.name.trim()) {
+      family.name = dto.name.trim();
+    }
+
+    await family.save();
+    return family;
+  }
+
+  async leaveFamily(userId: Types.ObjectId, familyId: string) {
+    const current = await this.getCurrentFamily(userId);
+    if (!current) {
+      throw new NotFoundException('Você não pertence a nenhuma família ativa');
+    }
+
+    const family = await this.familyModel.findById(familyId);
+    if (!family) {
+      throw new NotFoundException('Família não encontrada');
+    }
+
+    if ((family as any).ownerId.toString() === userId.toString()) {
+      throw new BadRequestException(
+        'O administrador da família não pode sair; transfira a administração ou exclua a família.'
+      );
+    }
+
+    const membership = await this.memberModel.findOne({
+      familyId: (family as any)._id,
+      userId,
+      status: 'active',
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Você não é membro ativo desta família');
+    }
+
+    membership.status = 'removed';
+    await membership.save();
+
+    return { message: 'Você saiu da família com sucesso' };
+  }
+
+  async deleteFamily(familyId: string, userId: Types.ObjectId) {
+    const current = await this.getCurrentFamily(userId);
+    if (!current) {
+      throw new NotFoundException('Você não pertence a nenhuma família ativa');
+    }
+
+    if ((current.family as any)._id.toString() !== familyId) {
+      throw new ForbiddenException('Você não tem permissão para excluir esta família');
+    }
+
+    if (current.role !== 'admin') {
+      throw new ForbiddenException('Apenas administradores podem excluir a família');
+    }
+
+    const family = await this.familyModel.findById(familyId);
+    if (!family) {
+      throw new NotFoundException('Família não encontrada');
+    }
+
+    // Arquiva todos os membros e a família
+    await this.memberModel.updateMany({ familyId }, { status: 'removed' });
+    family.status = 'disabled';
+    await family.save();
+
+    return { message: 'Família excluída com sucesso' };
   }
 }
